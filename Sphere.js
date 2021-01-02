@@ -13,7 +13,11 @@ class Sphere{
     var discriminant = b*b -4*a*c
 
     if(discriminant > 0 ){
-      drawPix(x,y)
+      //drawPix(x,y)
+      return [0,0,0]
+    }
+    else{
+      return[255,255,255]
     }
   }
 }
