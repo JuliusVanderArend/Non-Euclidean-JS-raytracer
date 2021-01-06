@@ -32,48 +32,64 @@ const render = gpu.createKernel(function(x,y,theta) {
   function vAdd(vecA, vecB){
     return [vecA[0] + vecB[0], vecA[1] + vecB[1], vecA[2] + vecB[2]];
   }
-  let stepcount = 100;
-  let dx = 10
-  let fov =0.01;
+  function vSub(vecA, vecB){
+    return [vecA[0] - vecB[0], vecA[1] - vecB[1], vecA[2] - vecB[2]];
+  }
+  const g = 0.001;
+  const rayMass =40;
+  const bholeMass = 10000;
+
+  let stepcount = 80;
+  let dx = 0.01
+  let fov =0.1;
   let resX = 1024
   let resY = 1024
-  let cpos = [0,0,-1]; //camera position
-  let pos = [-2.6+theta,0,-4]; // sphere center position
-  let lpos = [-x,-y,3];
+  let cpos = [theta-2,0,1]; //camera position
+  let pos = [0,0,-4]; // sphere center position
+  let lpos = [0,0,10];
   let lintensity = 5;
   let rad = 2
-  var potentialCoef = 10
+  var potentialCoef = 100
+  var stepSize = 0.0001;
+  let debug_lighting_offset  = 0.02
   var h2 = 1;
   let a = 0;
   let b = 0;
   let c =0;
   let rlen =0;
   let rpos = [0,0,0];
+  let lastPoint= cpos;
 
   let dir = rayDir(fov,resX,resY);
   for (var i =0; i < stepcount;i++){
-    let oc = [cpos[0]-pos[0],cpos[1]-pos[1],cpos[2]-pos[2]];
-    let point = rayPos(rlen,dir,cpos);
+    let point = lastPoint;
+    let oc = [point[0]-pos[0],point[1]-pos[1],point[2]-pos[2]];
     let ls = Math.pow(point[0]*point[0]+point[1]*point[1]+point[2]*point[2],2.5);
     let accel = [potentialCoef*h2*point[0]/ls,potentialCoef*h2*point[1]/ls,potentialCoef*h2*point[2]/ls]
+    let newtonF = g*rayMass*bholeMass/Math.sqrt(((point[0]-0)*(point[0]-0)+(point[1]-0)*(point[1]-0)+(point[2]-0)*(point[2]-0)))
+    accel = [-point[0]*newtonF,-point[1]*newtonF,-point[2]*newtonF]
     dir = vAdd(dir,accel);
     a = mdotproduct(dir,dir);
     b = 2* mdotproduct(dir, oc);
     c = mdotproduct(oc,oc) - rad*rad;
     let bs = 0;
     bs = b*b;
+    lastPoint = rayPos(stepSize,dir,point);
     let discr = bs -4*mdotproduct(dir,dir)*c;
       if(discr > 0){
         rlen = -(-b - Math.sqrt(discr)) / (2.0*a);
-        rpos = [rlen*dir[0]+pos[0],rlen*dir[1]+pos[1],rlen*dir[2]+pos[2]];
-        if(rlen>0){// || i == stepcount-1
+        //rlen = stepSize
+        rpos =rayPos(rlen,dir,point) //[rlen*dir[0]+pos[0],rlen*dir[1]+pos[1],rlen*dir[2]+pos[2]];
+        if(rlen>0 && rlen < dx){// || i == stepcount-1
           let snormal = normalizeVec([rpos[0]-pos[0],rpos[1]-pos[1],rpos[2]-pos[2]]);
           let lnormal = normalizeVec([lpos[0]-rpos[0],lpos[1]-rpos[1],lpos[2]-rpos[2]]);
           let lambert = (Math.max(0,mdotproduct(lnormal,snormal))*lintensity)/((rpos[0]-lpos[0])*(rpos[0]-lpos[0])+(rpos[1]-lpos[1])*(rpos[1]-lpos[1])+(rpos[2]-lpos[2])*(rpos[2]-lpos[2])) ; //calculating lambertian lighting (the dot product of the surface normal and the surface to light vector times the light intensity divided by light distance)
           //this.color(Math.tanh(discr)*1.2,0,Math.sinh(discr),1);
           //this.color(Math.sin(lambert)*10,Math.sinh(lambert),Math.tan(lambert)*5,1);
-          var checker = (checkerTex(rpos[0]*700,rpos[1]*700)/20)
-          this.color(checker*lambert,checker*lambert,checker*lambert,1);
+          var checker = (checkerTex(rpos[0]*700,rpos[2]*700)/20)
+          lambert = 1;
+          this.color(checker*lambert+debug_lighting_offset,checker*lambert+debug_lighting_offset,checker*lambert+debug_lighting_offset,1);
+          //this.color(0.5,0.5,rpos[2]/15);
           //break
         }  
       }
