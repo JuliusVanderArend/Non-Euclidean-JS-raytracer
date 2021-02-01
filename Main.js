@@ -1,13 +1,20 @@
 
-
-//s1 = new Sphere(2,[[1],[1],[1]],null)
-//cam = new Camera([[1],[-1],[-2]],0.02,256)
-
+var downButton = document.getElementById("down");
+var upButton = document.getElementById("up");
+var changeval = 1;
+function changeDown(){
+  changeval-=0.1;
+  console.log(changeval)
+}
+function changeUp(){
+  changeval+=0.1;
+  console.log(changeval)
+}
 const gpu = new GPU();
 var pageX = 0;
 var pageY = 0;
 
-const render = gpu.createKernel(function(x,y,theta) {
+const render = gpu.createKernel(function(x,y,theta,changeval) {
   function checkerTex(x,y){
     return (Math.sin(10*Math.PI*x/512)*Math.sin(10*Math.PI*y/512))/0.01 +0.5;
   }
@@ -37,20 +44,20 @@ const render = gpu.createKernel(function(x,y,theta) {
   }
   const g = 0.001;
   const rayMass =40;
-  const bholeMass = 10000;
+  const bholeMass = 10000 + changeval*8000;
 
-  let stepcount = 80;
-  let dx = 0.01
-  let fov =0.1;
+  let stepcount = 100;
+  let dx =0.1
+  let fov =0.001;
   let resX = 1024
   let resY = 1024
-  let cpos = [theta-2,0,1]; //camera position
-  let pos = [0,0,-4]; // sphere center position
+  let cpos = [0,0,0]; //camera position
+  let pos = [-1+x,-1+y,-2]; // sphere center position
   let lpos = [0,0,10];
   let lintensity = 5;
   let rad = 2
-  var potentialCoef = 100
-  var stepSize = 0.0001;
+  var potentialCoef = 1 +changeval*5
+  var stepSize = 0.0005;
   let debug_lighting_offset  = 0.02
   var h2 = 1;
   let a = 0;
@@ -68,7 +75,8 @@ const render = gpu.createKernel(function(x,y,theta) {
     let accel = [potentialCoef*h2*point[0]/ls,potentialCoef*h2*point[1]/ls,potentialCoef*h2*point[2]/ls]
     let newtonF = g*rayMass*bholeMass/Math.sqrt(((point[0]-0)*(point[0]-0)+(point[1]-0)*(point[1]-0)+(point[2]-0)*(point[2]-0)))
     accel = [-point[0]*newtonF,-point[1]*newtonF,-point[2]*newtonF]
-    dir = vAdd(dir,accel);
+    //accel = [1,1,1];
+    //dir = vAdd(dir,accel);
     a = mdotproduct(dir,dir);
     b = 2* mdotproduct(dir, oc);
     c = mdotproduct(oc,oc) - rad*rad;
@@ -80,13 +88,13 @@ const render = gpu.createKernel(function(x,y,theta) {
         rlen = -(-b - Math.sqrt(discr)) / (2.0*a);
         //rlen = stepSize
         rpos =rayPos(rlen,dir,point) //[rlen*dir[0]+pos[0],rlen*dir[1]+pos[1],rlen*dir[2]+pos[2]];
-        if(rlen>0 && rlen < dx){// || i == stepcount-1
+        if(rlen>0 && rlen < dx || i == stepcount-1){// || 
           let snormal = normalizeVec([rpos[0]-pos[0],rpos[1]-pos[1],rpos[2]-pos[2]]);
           let lnormal = normalizeVec([lpos[0]-rpos[0],lpos[1]-rpos[1],lpos[2]-rpos[2]]);
           let lambert = (Math.max(0,mdotproduct(lnormal,snormal))*lintensity)/((rpos[0]-lpos[0])*(rpos[0]-lpos[0])+(rpos[1]-lpos[1])*(rpos[1]-lpos[1])+(rpos[2]-lpos[2])*(rpos[2]-lpos[2])) ; //calculating lambertian lighting (the dot product of the surface normal and the surface to light vector times the light intensity divided by light distance)
           //this.color(Math.tanh(discr)*1.2,0,Math.sinh(discr),1);
           //this.color(Math.sin(lambert)*10,Math.sinh(lambert),Math.tan(lambert)*5,1);
-          var checker = (checkerTex(rpos[0]*700,rpos[2]*700)/20)
+          var checker = (checkerTex((rpos[0]+pos[0])*700,(rpos[1]+pos[1])*700)/20)
           lambert = 1;
           this.color(checker*lambert+debug_lighting_offset,checker*lambert+debug_lighting_offset,checker*lambert+debug_lighting_offset,1);
           //this.color(0.5,0.5,rpos[2]/15);
@@ -110,12 +118,11 @@ document.getElementsByTagName('body')[0].appendChild(canvas2);
 var theta =0;
 
 function draw(){
-  var t0 = performance.now();
+  //var t0 = performance.now();
   theta += 0.001;
-  render(-(pageX-512)/100,(pageY-512)/100,theta);
-  var t1 = performance.now();
-  console.log(t1-t0 + " ms time");
-
+  render(-(pageX-512)/100,(pageY-512)/100,theta,changeval);
+  //var t1 = performance.now();
+  //console.log(t1-t0 + " ms time");
 }
 
 setInterval(draw,16);
